@@ -2,7 +2,7 @@
 
 A personal, multi-agent AI chat app. Pick an **agent** (like a plugin) and a
 **model** (or let it auto-route with fallback), attach lots of files, and chat.
-Built with Next.js 15, deployable free on Vercel. No database required.
+Built with Next.js 15, deployable free on Vercel. No database required. 
 
 ---
 
