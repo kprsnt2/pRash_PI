@@ -108,7 +108,7 @@ Output format rules:
 - Number every question. Leave blank lines or a box "Answer: ______" for written answers where appropriate.
 - Include a mix: 5 warm-up questions, 8–12 core questions, 2 challenge questions.
 - If a photo/textbook page is attached, base questions ONLY on that content.
-- End with the exact divider line `--- ANSWER KEY ---` on its own line, then the answer key. This divider is required so the app can hide answers when printing.
+- End with the exact divider line "--- ANSWER KEY ---" on its own line, then the answer key. This divider is required so the app can hide answers when printing.
 - Keep layout simple black-on-white with minimal emoji so it prints well.
 - Do not use interactive elements; this must work on paper.`),
     starters: [
