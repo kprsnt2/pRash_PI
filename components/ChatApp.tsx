@@ -12,6 +12,9 @@ import {
   X,
   Volume2,
   VolumeX,
+  Sun,
+  Moon,
+  Download,
 } from "lucide-react";
 import type {
   Agent,
@@ -40,6 +43,8 @@ import { ModelPicker } from "./ModelPicker";
 import { Composer } from "./Composer";
 import { MessageBubble } from "./MessageBubble";
 import { Sidebar } from "./Sidebar";
+import { PrintModal } from "./PrintModal";
+import { exportConversation, importConversation } from "@/lib/exchange";
 
 interface MetaState {
   agents: Agent[];
@@ -96,6 +101,8 @@ export function ChatApp() {
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [autoSpeak, setAutoSpeak] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [printOpen, setPrintOpen] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -168,6 +175,36 @@ export function ChatApp() {
     setSpeechSupported(isSpeechSynthesisSupported());
     primeVoices();
     return () => cancelSpeech();
+  }, []);
+
+  /* ------------------------------- theme --------------------------------- */
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("prash-ai:theme");
+      const t =
+        saved === "light" || saved === "dark"
+          ? saved
+          : window.matchMedia?.("(prefers-color-scheme: light)").matches
+            ? "light"
+            : "dark";
+      setTheme(t);
+      document.documentElement.classList.toggle("light", t === "light");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    setTheme((cur) => {
+      const next = cur === "dark" ? "light" : "dark";
+      document.documentElement.classList.toggle("light", next === "light");
+      try {
+        localStorage.setItem("prash-ai:theme", next);
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
   }, []);
 
   /* --------------------------- persist settings -------------------------- */
@@ -256,6 +293,24 @@ export function ChatApp() {
     },
     [activeId],
   );
+
+  const handleExport = useCallback((id: string) => {
+    const conv = convosRef.current.find((c) => c.id === id);
+    if (conv) exportConversation(conv);
+  }, []);
+
+  const handleImport = useCallback(async (file: File) => {
+    try {
+      const conv = await importConversation(file);
+      setConvos((prev) => [conv, ...prev]);
+      setActiveId(conv.id);
+      persist(conv);
+      setNotice(`Imported "${conv.title}" — you can continue the chat.`);
+      setSidebarOpen(false);
+    } catch (e) {
+      setNotice(e instanceof Error ? e.message : "Could not import that file.");
+    }
+  }, [persist]);
 
   const handleClearAll = useCallback(() => {
     if (!confirm("Delete all saved chats? This cannot be undone.")) return;
@@ -354,19 +409,53 @@ export function ChatApp() {
           message?: string;
           model?: string;
           modelLabel?: string;
+          provider?: ProviderId;
           fallbackFrom?: string;
+          fallbackReason?: string;
           attempt?: number;
           total?: number;
+          elapsedMs?: number;
+          usage?: { promptTokens?: number; completionTokens?: number };
         }) => {
           if (ev.type === "meta") {
-            patch((m) => (m.modelId === ev.model ? m : { ...m, modelId: ev.model }));
+            patch((m) => ({
+              ...m,
+              modelId: ev.model,
+              stats: {
+                ...m.stats,
+                modelId: ev.model,
+                modelLabel: ev.modelLabel,
+                provider: ev.provider,
+                attempts: ev.attempt,
+                totalCandidates: ev.total,
+                fallbackFrom: ev.fallbackFrom,
+                fallbackReason: ev.fallbackReason,
+              },
+            }));
             if (ev.attempt && ev.attempt > 1) {
               setNotice(
-                `Primary model unavailable — switched to ${ev.modelLabel ?? ev.model}.`,
+                `Primary model unavailable — auto-routed to ${ev.modelLabel ?? ev.model}.`,
               );
             }
           } else if (ev.type === "delta" && ev.text) {
             patch((m) => ({ ...m, content: m.content + ev.text }));
+          } else if (ev.type === "done") {
+            patch((m) => ({
+              ...m,
+              stats: {
+                ...m.stats,
+                modelId: ev.model ?? m.stats?.modelId,
+                modelLabel: ev.modelLabel ?? m.stats?.modelLabel,
+                provider: ev.provider ?? m.stats?.provider,
+                elapsedMs: ev.elapsedMs,
+                promptTokens: ev.usage?.promptTokens,
+                completionTokens: ev.usage?.completionTokens,
+                attempts: ev.attempt ?? m.stats?.attempts,
+                totalCandidates: ev.total ?? m.stats?.totalCandidates,
+                fallbackFrom: ev.fallbackFrom ?? m.stats?.fallbackFrom,
+                fallbackReason: ev.fallbackReason ?? m.stats?.fallbackReason,
+              },
+            }));
           } else if (ev.type === "error") {
             patch((m) => ({
               ...m,
@@ -551,7 +640,7 @@ export function ChatApp() {
   /* -------------------------------- render ------------------------------- */
   if (!ready) {
     return (
-      <div className="grid h-dvh place-items-center text-[#93a0bd]">
+      <div className="grid h-dvh place-items-center text-[var(--muted)]">
         <div className="flex items-center gap-2 text-sm">
           <Loader2 size={18} className="animate-spin" /> Loading pRash AI…
         </div>
@@ -566,7 +655,7 @@ export function ChatApp() {
           <div className="mb-2 text-lg font-semibold text-rose-300">
             Setup problem
           </div>
-          <p className="max-w-md text-sm text-[#93a0bd]">{metaError}</p>
+          <p className="max-w-md text-sm text-[var(--muted)]">{metaError}</p>
         </div>
       </div>
     );
@@ -577,8 +666,13 @@ export function ChatApp() {
   const isEmpty = messages.length === 0;
   const noProviders = meta.configured.length === 0;
 
+  const agentFor = (agentId?: string) =>
+    meta.agents.find((a) => a.id === (agentId ?? active?.agentId)) ??
+    agent ??
+    meta.agents[0];
+
   return (
-    <div className="flex h-dvh overflow-hidden">
+    <div className="app-root flex h-dvh overflow-hidden">
       {/* Sidebar */}
       <div
         className={`fixed inset-y-0 left-0 z-50 transition-transform lg:static lg:translate-x-0 no-print ${
@@ -596,6 +690,8 @@ export function ChatApp() {
           onNew={handleNew}
           onDelete={handleDelete}
           onClearAll={handleClearAll}
+          onExport={handleExport}
+          onImport={handleImport}
         />
       </div>
       {sidebarOpen && (
@@ -607,11 +703,11 @@ export function ChatApp() {
 
       {/* Main */}
       <main className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-2 border-b border-[#26304a] px-3 py-2.5 no-print">
+        <header className="flex items-center gap-2 border-b border-[var(--border)] px-3 py-2.5 no-print">
           <button
             type="button"
             onClick={() => setSidebarOpen((v) => !v)}
-            className="grid h-9 w-9 place-items-center rounded-xl text-[#93a0bd] hover:bg-[#1b2438] lg:hidden"
+            className="grid h-9 w-9 place-items-center rounded-xl text-[var(--muted)] hover:bg-[var(--panel-2)] lg:hidden"
           >
             <Menu size={18} />
           </button>
@@ -636,7 +732,7 @@ export function ChatApp() {
               className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-xs font-medium transition ${
                 active?.isPrivate
                   ? "border-amber-500/40 bg-amber-500/10 text-amber-300"
-                  : "border-[#26304a] bg-[#151c2e] text-[#93a0bd] hover:text-white"
+                  : "border-[var(--border)] bg-[var(--panel)] text-[var(--muted)] hover:text-[var(--text)]"
               }`}
               title={
                 active?.isPrivate
@@ -665,7 +761,7 @@ export function ChatApp() {
                 className={`flex items-center gap-1.5 rounded-xl border px-2.5 py-2 text-xs font-medium transition ${
                   autoSpeak
                     ? "border-indigo-500/40 bg-indigo-500/10 text-indigo-300"
-                    : "border-[#26304a] bg-[#151c2e] text-[#93a0bd] hover:text-white"
+                    : "border-[var(--border)] bg-[var(--panel)] text-[var(--muted)] hover:text-[var(--text)]"
                 }`}
                 title={
                   autoSpeak
@@ -679,17 +775,35 @@ export function ChatApp() {
             )}
             <button
               type="button"
-              onClick={() => window.print()}
-              className="grid h-9 w-9 place-items-center rounded-xl text-[#93a0bd] hover:bg-[#1b2438] hover:text-white"
-              title="Print / save as PDF"
+              onClick={() => active && handleExport(active.id)}
+              disabled={!active || !active.messages.length}
+              className="grid h-9 w-9 place-items-center rounded-xl text-[var(--muted)] hover:bg-[var(--panel-2)] hover:text-[var(--text)] disabled:opacity-40"
+              title="Export chat (.json) — import it later to resume"
+            >
+              <Download size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setPrintOpen(true)}
+              disabled={!active || !active.messages.length}
+              className="grid h-9 w-9 place-items-center rounded-xl text-[var(--muted)] hover:bg-[var(--panel-2)] hover:text-[var(--text)] disabled:opacity-40"
+              title="Print / save as PDF (with optional answer key)"
             >
               <Printer size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="grid h-9 w-9 place-items-center rounded-xl text-[var(--muted)] hover:bg-[var(--panel-2)] hover:text-[var(--text)]"
+              title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </button>
             {meta.authEnabled && (
               <button
                 type="button"
                 onClick={logout}
-                className="grid h-9 w-9 place-items-center rounded-xl text-[#93a0bd] hover:bg-[#1b2438] hover:text-white"
+                className="grid h-9 w-9 place-items-center rounded-xl text-[var(--muted)] hover:bg-[var(--panel-2)] hover:text-[var(--text)]"
                 title="Log out"
               >
                 <LogOut size={15} />
@@ -718,7 +832,7 @@ export function ChatApp() {
                 <h1 className="text-2xl font-semibold tracking-tight">
                   {agent?.name}
                 </h1>
-                <p className="mt-1 max-w-lg text-sm text-[#93a0bd]">
+                <p className="mt-1 max-w-lg text-sm text-[var(--muted)]">
                   {agent?.description}
                 </p>
                 <div className="mt-5 grid gap-2 sm:grid-cols-2">
@@ -727,13 +841,13 @@ export function ChatApp() {
                       key={s}
                       type="button"
                       onClick={() => handleSend(s, [])}
-                      className="rounded-2xl border border-[#26304a] bg-[#151c2e] p-3 text-left text-sm text-[#c3cee6] transition hover:border-indigo-500/50 hover:bg-[#1b2438]"
+                      className="rounded-2xl border border-[var(--border)] bg-[var(--panel)] p-3 text-left text-sm text-[var(--text-2)] transition hover:border-indigo-500/50 hover:bg-[var(--panel-2)]"
                     >
                       {s}
                     </button>
                   ))}
                 </div>
-                <p className="mt-6 flex items-center gap-1.5 text-[11px] text-[#6b7899]">
+                <p className="mt-6 flex items-center gap-1.5 text-[11px] text-[var(--faint)]">
                   <Zap size={12} className="text-amber-400" />
                   Attach images, PDFs and text files — up to 10 per message.
                 </p>
@@ -752,8 +866,12 @@ export function ChatApp() {
                   <MessageBubble
                     key={m.id}
                     msg={m}
-                    agent={agent ?? meta.agents[0]}
-                    modelLabel={meta.models.find((x) => x.id === m.modelId)?.label ?? m.modelId}
+                    agent={agentFor(m.agentId)}
+                    modelLabel={
+                      m.stats?.modelLabel ??
+                      meta.models.find((x) => x.id === m.modelId)?.label ??
+                      m.modelId
+                    }
                     streaming={streamingMsgId === m.id}
                     speaking={speakingId === m.id}
                     speechSupported={speechSupported}
@@ -774,7 +892,7 @@ export function ChatApp() {
           </div>
         </div>
 
-        <div className="border-t border-[#26304a] bg-[#0b0f19]/60 px-3 pb-3 pt-3 no-print">
+        <div className="border-t border-[var(--border)] bg-[var(--bg)]/60 px-3 pb-3 pt-3 no-print">
           <div className="mx-auto w-full max-w-3xl">
             <Composer
               onSend={handleSend}
@@ -783,7 +901,7 @@ export function ChatApp() {
               disabled={noProviders}
               isPrivate={active?.isPrivate ?? false}
             />
-            <div className="mt-2 flex items-center justify-center gap-3 text-[10px] text-[#6b7899]">
+            <div className="mt-2 flex items-center justify-center gap-3 text-[10px] text-[var(--faint)]">
               <span>Files are sent to the active model to generate the reply</span>
               {active?.isPrivate && (
                 <span className="text-amber-400/80">
@@ -794,6 +912,14 @@ export function ChatApp() {
           </div>
         </div>
       </main>
+
+      {printOpen && active && (
+        <PrintModal
+          convo={active}
+          agent={agent}
+          onClose={() => setPrintOpen(false)}
+        />
+      )}
     </div>
   );
 }

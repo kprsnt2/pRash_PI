@@ -41,7 +41,7 @@ function AttachmentChip({
 }) {
   const isImage = a.kind === "image" && a.dataUrl;
   return (
-    <div className="group relative flex items-center gap-2 rounded-xl border border-[#26304a] bg-[#111726] p-1.5 pr-2">
+    <div className="group relative flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--bg-soft)] p-1.5 pr-2">
       {isImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -50,20 +50,20 @@ function AttachmentChip({
           className="h-9 w-9 rounded-lg object-cover"
         />
       ) : (
-        <span className="grid h-9 w-9 place-items-center rounded-lg bg-[#1b2438] text-[#93a0bd]">
+        <span className="grid h-9 w-9 place-items-center rounded-lg bg-[var(--panel-2)] text-[var(--muted)]">
           {a.kind === "pdf" ? <FileText size={16} /> : <FileIcon size={16} />}
         </span>
       )}
       <span className="max-w-[9rem]">
         <span className="block truncate text-xs font-medium">{a.name}</span>
-        <span className="block text-[10px] text-[#93a0bd]">
+        <span className="block text-[10px] text-[var(--muted)]">
           {humanSize(a.size)}
         </span>
       </span>
       <button
         type="button"
         onClick={() => onRemove(a.id)}
-        className="ml-0.5 grid h-5 w-5 place-items-center rounded-full bg-[#26304a] text-[#93a0bd] hover:bg-rose-500/80 hover:text-white"
+        className="ml-0.5 grid h-5 w-5 place-items-center rounded-full bg-[var(--border)] text-[var(--muted)] hover:bg-rose-500/80 hover:text-[var(--text)]"
         aria-label={`Remove ${a.name}`}
       >
         <X size={11} />
@@ -189,12 +189,12 @@ export function Composer({
       }}
       onDragLeave={() => setDragging(false)}
       onDrop={onDrop}
-      className={`relative rounded-3xl border bg-[#111726]/90 backdrop-blur transition ${
-        dragging ? "border-indigo-400 ring-2 ring-indigo-500/30" : "border-[#26304a]"
+      className={`relative rounded-3xl border bg-[var(--bg-soft)]/90 backdrop-blur transition ${
+        dragging ? "border-indigo-400 ring-2 ring-indigo-500/30" : "border-[var(--border)]"
       }`}
     >
       {(attachments.length > 0 || errors.length > 0) && (
-        <div className="flex flex-wrap gap-2 border-b border-[#26304a] p-2.5">
+        <div className="flex flex-wrap gap-2 border-b border-[var(--border)] p-2.5">
           {attachments.map((a) => (
             <AttachmentChip key={a.id} a={a} onRemove={remove} />
           ))}
@@ -213,7 +213,7 @@ export function Composer({
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-[#93a0bd] hover:bg-[#1b2438] hover:text-white"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-[var(--muted)] hover:bg-[var(--panel-2)] hover:text-[var(--text)]"
           title="Attach images, PDF or text"
         >
           {busy ? <Loader2 size={18} className="animate-spin" /> : <Paperclip size={18} />}
@@ -238,7 +238,7 @@ export function Composer({
             className={`grid h-10 w-10 shrink-0 place-items-center rounded-2xl transition ${
               speech.listening
                 ? "bg-rose-500/20 text-rose-300"
-                : "text-[#93a0bd] hover:bg-[#1b2438] hover:text-white"
+                : "text-[var(--muted)] hover:bg-[var(--panel-2)] hover:text-[var(--text)]"
             }`}
             title={speech.listening ? "Stop dictation" : "Speak your message"}
           >
@@ -251,7 +251,7 @@ export function Composer({
         )}
 
         {interim && (
-          <div className="pointer-events-none absolute -top-6 left-16 rounded-lg bg-[#1b2438] px-2 py-0.5 text-[11px] text-indigo-200">
+          <div className="pointer-events-none absolute -top-6 left-16 rounded-lg bg-[var(--panel-2)] px-2 py-0.5 text-[11px] text-indigo-200">
             {interim}…
           </div>
         )}
@@ -269,14 +269,14 @@ export function Composer({
               ? "Private chat — routed to Gemini only…"
               : "Message your agent…  (Enter to send, Shift+Enter for newline)"
           }
-          className="max-h-[260px] min-h-[2.5rem] flex-1 resize-none bg-transparent px-1 py-2 text-[0.95rem] leading-relaxed outline-none placeholder:text-[#6b7899] disabled:opacity-60"
+          className="max-h-[260px] min-h-[2.5rem] flex-1 resize-none bg-transparent px-1 py-2 text-[0.95rem] leading-relaxed outline-none placeholder:text-[var(--faint)] disabled:opacity-60"
         />
 
         {isStreaming ? (
           <button
             type="button"
             onClick={onStop}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[#26304a] text-white hover:bg-[#33405f]"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-[var(--border)] text-white hover:bg-[var(--border-strong)]"
             title="Stop"
           >
             <Square size={15} fill="currentColor" />
@@ -286,7 +286,7 @@ export function Composer({
             type="button"
             onClick={submit}
             disabled={!canSend}
-            className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-indigo-500 text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-[#26304a] disabled:text-[#6b7899]"
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-indigo-500 text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:bg-[var(--border)] disabled:text-[var(--faint)]"
             title="Send"
           >
             <ArrowUp size={18} />

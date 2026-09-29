@@ -14,6 +14,22 @@ export interface Attachment {
   text?: string;
 }
 
+/** Per-reply diagnostics shown under assistant messages. */
+export interface ChatStats {
+  modelId?: string;
+  modelLabel?: string;
+  provider?: ProviderId;
+  elapsedMs?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  /** how many models were tried before this one answered (1 = first try) */
+  attempts?: number;
+  totalCandidates?: number;
+  /** set when auto-routing switched away from an earlier model */
+  fallbackFrom?: string;
+  fallbackReason?: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: Role;
@@ -23,6 +39,7 @@ export interface ChatMessage {
   agentId?: string;
   modelId?: string;
   error?: boolean;
+  stats?: ChatStats;
 }
 
 export interface Conversation {

@@ -12,9 +12,9 @@ function list(value: string | undefined, fallback: string[]): string[] {
 
 const DEFAULT_OPENAI = ["gpt-5-mini", "gpt-5-nano", "gpt-5", "gpt-4.1-mini"];
 const DEFAULT_GEMINI = [
-  "gemini-flash-latest",
   "gemini-2.5-flash",
   "gemini-2.5-pro",
+  "gemini-flash-latest",
 ];
 const DEFAULT_NVIDIA = [
   "meta/llama-3.3-70b-instruct",
@@ -54,13 +54,30 @@ export interface ProviderConfig {
   models: string[];
 }
 
+/**
+ * Apply the optional per-provider "default model" override.
+ * e.g. OPENAI_DEFAULT_MODEL=gpt-5-nano makes that model the primary for
+ * auto-routing and the first entry in the picker, without editing the list.
+ */
+function withDefaultOverride(
+  models: string[],
+  override: string | undefined,
+): string[] {
+  const d = override?.trim();
+  if (!d) return models;
+  return [d, ...models.filter((m) => m !== d)];
+}
+
 function readProviders(): Record<ProviderId, ProviderConfig> {
   return {
     openai: {
       id: "openai",
       baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
       apiKey: process.env.OPENAI_API_KEY?.trim() || undefined,
-      models: list(process.env.OPENAI_MODELS, DEFAULT_OPENAI),
+      models: withDefaultOverride(
+        list(process.env.OPENAI_MODELS, DEFAULT_OPENAI),
+        process.env.OPENAI_DEFAULT_MODEL,
+      ),
     },
     gemini: {
       id: "gemini",
@@ -71,21 +88,30 @@ function readProviders(): Record<ProviderId, ProviderConfig> {
         process.env.GEMINI_API_KEY?.trim() ||
         process.env.GOOGLE_API_KEY?.trim() ||
         undefined,
-      models: list(process.env.GEMINI_MODELS, DEFAULT_GEMINI),
+      models: withDefaultOverride(
+        list(process.env.GEMINI_MODELS, DEFAULT_GEMINI),
+        process.env.GEMINI_DEFAULT_MODEL,
+      ),
     },
     nvidia: {
       id: "nvidia",
       baseUrl:
         process.env.NVIDIA_BASE_URL || "https://integrate.api.nvidia.com/v1",
       apiKey: process.env.NVIDIA_API_KEY?.trim() || undefined,
-      models: list(process.env.NVIDIA_MODELS, DEFAULT_NVIDIA),
+      models: withDefaultOverride(
+        list(process.env.NVIDIA_MODELS, DEFAULT_NVIDIA),
+        process.env.NVIDIA_DEFAULT_MODEL,
+      ),
     },
     groq: {
       id: "groq",
       baseUrl:
         process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1",
       apiKey: process.env.GROQ_API_KEY?.trim() || undefined,
-      models: list(process.env.GROQ_MODELS, DEFAULT_GROQ),
+      models: withDefaultOverride(
+        list(process.env.GROQ_MODELS, DEFAULT_GROQ),
+        process.env.GROQ_DEFAULT_MODEL,
+      ),
     },
   };
 }

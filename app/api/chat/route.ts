@@ -1,6 +1,11 @@
 import { getAgent } from "@/lib/agents";
 import { buildCandidates, getProviders } from "@/lib/models";
-import { ProviderError, streamModel, type LlmMessage } from "@/lib/providers";
+import {
+  ProviderError,
+  streamModel,
+  type LlmMessage,
+  type TokenUsage,
+} from "@/lib/providers";
 import type { Attachment } from "@/lib/types";
 
 export const maxDuration = 60;
@@ -97,10 +102,12 @@ export async function POST(req: Request) {
     async start(controller) {
       const errors: string[] = [];
       let emitted = false;
+      const startedAt = Date.now();
 
       for (let i = 0; i < candidates.length; i++) {
         const model = candidates[i];
         const cfg = providers[model.provider];
+        const attemptStart = Date.now();
         try {
           controller.enqueue(
             sse({
@@ -109,24 +116,42 @@ export async function POST(req: Request) {
               modelLabel: model.label,
               provider: model.provider,
               fallbackFrom: i > 0 ? candidates[i - 1].id : undefined,
+              // Why we moved on from the previous model, in plain words.
+              fallbackReason: i > 0 ? errors[i - 1] : undefined,
               attempt: i + 1,
               total: candidates.length,
             }),
           );
 
-          for await (const delta of streamModel(model, cfg, {
+          let usage: TokenUsage | undefined;
+          for await (const ev of streamModel(model, cfg, {
             system: agent.systemPrompt,
             messages,
             signal,
           })) {
-            if (delta) {
+            if (ev.type === "delta" && ev.text) {
               emitted = true;
-              controller.enqueue(sse({ type: "delta", text: delta }));
+              controller.enqueue(sse({ type: "delta", text: ev.text }));
+            } else if (ev.type === "usage") {
+              usage = ev.usage;
             }
           }
 
           controller.enqueue(
-            sse({ type: "done", model: model.id, errors }),
+            sse({
+              type: "done",
+              model: model.id,
+              modelLabel: model.label,
+              provider: model.provider,
+              elapsedMs: Date.now() - attemptStart,
+              totalElapsedMs: Date.now() - startedAt,
+              usage,
+              attempt: i + 1,
+              total: candidates.length,
+              fallbackFrom: i > 0 ? candidates[i - 1].id : undefined,
+              fallbackReason: i > 0 ? errors[i - 1] : undefined,
+              errors,
+            }),
           );
           controller.close();
           return;

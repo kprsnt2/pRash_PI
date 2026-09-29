@@ -22,6 +22,16 @@ export interface StreamOptions {
   signal?: AbortSignal;
 }
 
+export interface TokenUsage {
+  promptTokens?: number;
+  completionTokens?: number;
+}
+
+/** Events emitted while streaming a reply. */
+export type StreamEvent =
+  | { type: "delta"; text: string }
+  | { type: "usage"; usage: TokenUsage };
+
 const IMAGE_DATA_URL = /^data:([^;]+);base64,(.*)$/;
 
 function splitDataUrl(dataUrl: string): { mime: string; data: string } | null {
@@ -130,11 +140,14 @@ async function* streamOpenAICompatible(
   model: ModelInfo,
   cfg: ProviderConfig,
   opts: StreamOptions,
-): AsyncGenerator<string> {
+): AsyncGenerator<StreamEvent> {
   if (!cfg.apiKey) throw new ProviderError("Missing API key");
   const body = {
     model: model.model,
     stream: true,
+    // Ask for token usage in the final chunk (supported by OpenAI, Groq,
+    // NVIDIA NIM; providers that don't support it simply ignore the field).
+    stream_options: { include_usage: true },
     messages: toOpenAIMessages(opts, model.vision),
   };
   const res = await fetch(`${cfg.baseUrl.replace(/\/$/, "")}/chat/completions`, {
@@ -153,7 +166,23 @@ async function* streamOpenAICompatible(
     try {
       const json = JSON.parse(data);
       const delta = json?.choices?.[0]?.delta?.content;
-      if (typeof delta === "string" && delta) yield delta;
+      if (typeof delta === "string" && delta) {
+        yield { type: "delta", text: delta };
+      }
+      const u = json?.usage;
+      if (u && typeof u === "object") {
+        yield {
+          type: "usage",
+          usage: {
+            promptTokens:
+              typeof u.prompt_tokens === "number" ? u.prompt_tokens : undefined,
+            completionTokens:
+              typeof u.completion_tokens === "number"
+                ? u.completion_tokens
+                : undefined,
+          },
+        };
+      }
       // some NVIDIA models emit reasoning_content separately; ignore.
     } catch {
       // ignore malformed keep-alive chunks
@@ -189,7 +218,7 @@ async function* streamGemini(
   model: ModelInfo,
   cfg: ProviderConfig,
   opts: StreamOptions,
-): AsyncGenerator<string> {
+): AsyncGenerator<StreamEvent> {
   if (!cfg.apiKey) throw new ProviderError("Missing API key");
   const url = `${cfg.baseUrl.replace(/\/$/, "")}/models/${encodeURIComponent(
     model.model,
@@ -217,8 +246,26 @@ async function* streamGemini(
       const parts = json?.candidates?.[0]?.content?.parts;
       if (Array.isArray(parts)) {
         for (const p of parts) {
-          if (typeof p?.text === "string" && p.text) yield p.text;
+          if (typeof p?.text === "string" && p.text) {
+            yield { type: "delta", text: p.text };
+          }
         }
+      }
+      const u = json?.usageMetadata;
+      if (u && typeof u === "object") {
+        yield {
+          type: "usage",
+          usage: {
+            promptTokens:
+              typeof u.promptTokenCount === "number"
+                ? u.promptTokenCount
+                : undefined,
+            completionTokens:
+              typeof u.candidatesTokenCount === "number"
+                ? u.candidatesTokenCount
+                : undefined,
+          },
+        };
       }
     } catch {
       // ignore
@@ -232,7 +279,7 @@ export function streamModel(
   model: ModelInfo,
   cfg: ProviderConfig,
   opts: StreamOptions,
-): AsyncGenerator<string> {
+): AsyncGenerator<StreamEvent> {
   if (model.provider === "gemini") return streamGemini(model, cfg, opts);
   return streamOpenAICompatible(model, cfg, opts);
 }

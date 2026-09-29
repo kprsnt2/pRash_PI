@@ -3,12 +3,45 @@
 :root {
   --bg: #0b0f19;
   --bg-soft: #111726;
+  --bg-deep: #0d1322;
+  --bg-raise: #0f1526;
   --panel: #151c2e;
   --panel-2: #1b2438;
   --border: #26304a;
+  --border-strong: #33405f;
   --text: #e8ecf6;
+  --text-2: #c3cee6;
   --muted: #93a0bd;
+  --faint: #6b7899;
   --accent: #6366f1;
+  --link: #93b4ff;
+  --code-bg: #0a0f1c;
+  --code-border: #222c46;
+  --th-bg: #1a2236;
+  --quote-border: #3a4870;
+  --glow: #1b2140;
+}
+
+html.light {
+  --bg: #f4f6fb;
+  --bg-soft: #ffffff;
+  --bg-deep: #eef1f8;
+  --bg-raise: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #e9edf6;
+  --border: #d5dcea;
+  --border-strong: #b9c4da;
+  --text: #16203a;
+  --text-2: #2a3752;
+  --muted: #4d5d80;
+  --faint: #7787a6;
+  --accent: #4f46e5;
+  --link: #3557d6;
+  --code-bg: #eef1f8;
+  --code-border: #d5dcea;
+  --th-bg: #e9edf6;
+  --quote-border: #b9c4da;
+  --glow: #e4e9f8;
 }
 
 * {
@@ -22,7 +55,7 @@ body {
 
 body {
   margin: 0;
-  background: radial-gradient(1200px 800px at 80% -10%, #1b2140 0%, var(--bg) 55%);
+  background: radial-gradient(1200px 800px at 80% -10%, var(--glow) 0%, var(--bg) 55%);
   color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, "Noto Sans", sans-serif;
@@ -41,6 +74,14 @@ body {
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #3a4870;
+  background-clip: content-box;
+}
+html.light ::-webkit-scrollbar-thumb {
+  background: #c2cddf;
+  background-clip: content-box;
+}
+html.light ::-webkit-scrollbar-thumb:hover {
+  background: #a5b3cd;
   background-clip: content-box;
 }
 
@@ -91,27 +132,27 @@ body {
   margin: 0.25em 0;
 }
 .md a {
-  color: #93b4ff;
+  color: var(--link);
   text-decoration: underline;
 }
 .md blockquote {
-  border-left: 3px solid #3a4870;
+  border-left: 3px solid var(--quote-border);
   margin: 0.8em 0;
   padding: 0.2em 0 0.2em 0.9em;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.02);
+  background: color-mix(in srgb, var(--muted) 6%, transparent);
 }
 .md code {
-  background: #0d1322;
-  border: 1px solid #222c46;
+  background: var(--bg-deep);
+  border: 1px solid var(--code-border);
   padding: 0.12em 0.38em;
   border-radius: 6px;
   font-size: 0.88em;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 .md pre {
-  background: #0a0f1c;
-  border: 1px solid #222c46;
+  background: var(--code-bg);
+  border: 1px solid var(--code-border);
   border-radius: 12px;
   padding: 0.9rem 1rem;
   overflow-x: auto;
@@ -140,7 +181,7 @@ body {
   vertical-align: top;
 }
 .md th {
-  background: #1a2236;
+  background: var(--th-bg);
   font-weight: 600;
 }
 .md hr {
@@ -191,12 +232,52 @@ body {
   animation: fade-up 0.22s ease both;
 }
 
+/* ------------------------------- Printing ------------------------------ */
+
+.print-sheet {
+  display: none;
+}
+
 @media print {
   body {
-    background: #fff;
+    background: #fff !important;
     color: #000;
   }
   .no-print {
     display: none !important;
+  }
+  /* When the print modal is open, print ONLY the formatted sheet. */
+  body.printing .app-root {
+    display: none !important;
+  }
+  body.printing .print-sheet {
+    display: block !important;
+    color: #000;
+    background: #fff;
+  }
+  .print-sheet .md {
+    color: #000;
+    font-size: 11pt;
+  }
+  .print-sheet .md code {
+    background: #f2f2f2;
+    border-color: #ddd;
+    color: #111;
+  }
+  .print-sheet .md pre {
+    background: #f7f7f7;
+    border-color: #ddd;
+  }
+  .print-sheet .md th {
+    background: #eee;
+  }
+  .print-sheet .md a {
+    color: #1a3faa;
+  }
+  .print-sheet .md blockquote {
+    color: #444;
+  }
+  .print-page-break {
+    page-break-before: always;
   }
 }

@@ -27,7 +27,17 @@ Built with Next.js 15, deployable free on Vercel. No database required.
   stops the conversation from ever being saved. Designed for your paid Gemini
   key that does not train on your data.
 - **Markdown + math** — code blocks with copy button, tables, GFM and KaTeX.
-- **Print** — "Print / save as PDF" button. Perfect for the Worksheet agent.
+- **Dark / light mode** — one-click theme toggle, remembered per browser.
+- **Reply stats** — every answer shows the model that served it, response
+  time and token usage (estimated when a provider does not report it). When
+  auto-routing switched providers, the reason is shown under the reply.
+- **Switch agent mid-chat** — the agent picker works at any time; each reply
+  remembers which agent produced it.
+- **Export / import chats** — download any chat as a `.json` file and import
+  it later (or on another device) to resume the session.
+- **Print / PDF** — clean A4 preview with Name/Date/Score header. Answer keys
+  are detected automatically and can be hidden with one toggle, then printed
+  on a separate page. Perfect for the Worksheet agent.
 - **Local-only history** — conversations live in your browser (IndexedDB).
   Nothing is stored on the server. Private chats are never saved.
 - **Optional passcode gate** for public deployments.
@@ -75,6 +85,16 @@ NVIDIA_MODELS=meta/llama-3.3-70b-instruct,meta/llama-3.1-8b-instruct,deepseek-ai
 > defaults to `gpt-5-mini` then `gpt-5-nano`. If you want different ids, put
 > them in `OPENAI_MODELS`. The first entry is the primary; the rest are
 > fallbacks. Exact model availability depends on your OpenAI account access.
+
+**Pin a default model per provider** (optional) — bypasses the first entry
+of the list without editing it:
+
+```env
+OPENAI_DEFAULT_MODEL=gpt-5-nano
+GEMINI_DEFAULT_MODEL=gemini-2.5-flash
+GROQ_DEFAULT_MODEL=llama-3.3-70b-versatile
+NVIDIA_DEFAULT_MODEL=meta/llama-3.3-70b-instruct
+```
 
 **Custom fallback order** (optional):
 
@@ -143,19 +163,21 @@ app/
   page.tsx              chat app
   globals.css           theme + markdown/print styles
 components/
-  ChatApp.tsx           main state, streaming, routing UI
-  Sidebar.tsx           conversation list
-  AgentPicker.tsx       agent dropdown (searchable)
+  ChatApp.tsx           main state, streaming, routing UI, theme, export/import
+  Sidebar.tsx           conversation list + import/export buttons
+  AgentPicker.tsx       agent dropdown (searchable, switchable mid-chat)
   ModelPicker.tsx       model dropdown + auto route
-  Composer.tsx          textarea, attachments, drag/drop, paste
-  MessageBubble.tsx     messages with markdown + retry/copy
+  Composer.tsx          textarea, attachments, drag/drop, paste, voice input
+  MessageBubble.tsx     messages with markdown + retry/copy/listen + stats
+  PrintModal.tsx        print/PDF preview with hide-answers toggle
   Markdown.tsx          react-markdown + KaTeX + code copy
 lib/
   agents.ts             all agents & system prompts
   models.ts             model registry, env parsing, fallback builder
-  providers.ts          OpenAI-compatible + Gemini streaming adapters
+  providers.ts          OpenAI-compatible + Gemini streaming adapters (usage stats)
   files.ts              client-side file → attachment conversion
   storage.ts            IndexedDB conversation storage
+  exchange.ts           chat export / import (.json)
   auth.ts               passcode hashing/validation
 middleware.ts           passcode gate
 ```

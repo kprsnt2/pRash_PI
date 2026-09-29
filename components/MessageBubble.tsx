@@ -11,6 +11,7 @@ import {
   AlertTriangle,
   Volume2,
   Square,
+  Zap,
 } from "lucide-react";
 import type { Agent, ChatMessage } from "@/lib/types";
 import { Markdown } from "./Markdown";
@@ -23,7 +24,7 @@ function UserAttachments({ msg }: { msg: ChatMessage }) {
       {msg.attachments.map((a) => (
         <div
           key={a.id}
-          className="overflow-hidden rounded-xl border border-[#26304a] bg-[#0f1526]"
+          className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--bg-raise)]"
         >
           {a.kind === "image" && a.dataUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -33,10 +34,10 @@ function UserAttachments({ msg }: { msg: ChatMessage }) {
               className="max-h-48 max-w-[16rem] object-contain"
             />
           ) : (
-            <div className="flex items-center gap-2 px-3 py-2 text-xs text-[#c3cee6]">
+            <div className="flex items-center gap-2 px-3 py-2 text-xs text-[var(--text-2)]">
               {a.kind === "pdf" ? <FileText size={14} /> : <FileIcon size={14} />}
               <span className="max-w-[12rem] truncate">{a.name}</span>
-              <span className="text-[#6b7899]">{humanSize(a.size)}</span>
+              <span className="text-[var(--faint)]">{humanSize(a.size)}</span>
             </div>
           )}
         </div>
@@ -86,7 +87,7 @@ export function MessageBubble({
             {msg.content}
           </div>
         </div>
-        <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[#26304a] text-[#93a0bd]">
+        <div className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full bg-[var(--border)] text-[var(--muted)]">
           <UserIcon size={14} />
         </div>
       </div>
@@ -106,7 +107,7 @@ export function MessageBubble({
           className={`rounded-2xl rounded-bl-md border px-4 py-3 ${
             msg.error
               ? "border-rose-500/40 bg-rose-500/10"
-              : "border-[#26304a] bg-[#151c2e]"
+              : "border-[var(--border)] bg-[var(--panel)]"
           }`}
         >
           {msg.error && (
@@ -120,19 +121,48 @@ export function MessageBubble({
               {streaming && <span className="cursor-blink" />}
             </div>
           ) : streaming ? (
-            <span className="cursor-blink text-[#93a0bd]" />
+            <span className="cursor-blink text-[var(--muted)]" />
           ) : null}
         </div>
-        <div className="mt-1.5 flex items-center gap-3 px-1 text-[11px] text-[#6b7899] no-print">
-          <span className="font-medium text-[#93a0bd]">{agent.name}</span>
+        {msg.stats?.fallbackFrom && !streaming && (
+          <div className="mt-1.5 flex items-start gap-1.5 px-1 text-[11px] text-amber-500/90 no-print">
+            <Zap size={11} className="mt-0.5 shrink-0" />
+            <span>
+              Auto-routed to{" "}
+              <span className="font-medium">
+                {msg.stats.modelLabel ?? msg.stats.modelId}
+              </span>
+              {msg.stats.fallbackReason
+                ? ` — ${msg.stats.fallbackReason}`
+                : ` after ${msg.stats.fallbackFrom} was unavailable`}
+              .
+            </span>
+          </div>
+        )}
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-[var(--faint)] no-print">
+          <span className="font-medium text-[var(--muted)]">{agent.name}</span>
           {modelLabel && <span>{modelLabel}</span>}
+          {!streaming && msg.stats?.elapsedMs != null && (
+            <span>{(msg.stats.elapsedMs / 1000).toFixed(1)}s</span>
+          )}
+          {!streaming &&
+            (msg.stats?.completionTokens != null || msg.content) && (
+              <span title="Tokens: prompt → reply (estimated when the provider does not report usage)">
+                {msg.stats?.promptTokens != null
+                  ? `${msg.stats.promptTokens} → `
+                  : ""}
+                {msg.stats?.completionTokens != null
+                  ? `${msg.stats.completionTokens} tok`
+                  : `~${Math.max(1, Math.round(msg.content.length / 4))} tok`}
+              </span>
+            )}
           {msg.content && !streaming && (
             <>
               {speechSupported && onToggleSpeak && (
                 <button
                   type="button"
                   onClick={onToggleSpeak}
-                  className={`flex items-center gap-1 hover:text-white ${
+                  className={`flex items-center gap-1 hover:text-[var(--text)] ${
                     speaking ? "text-indigo-300" : ""
                   }`}
                 >
@@ -143,7 +173,7 @@ export function MessageBubble({
               <button
                 type="button"
                 onClick={copy}
-                className="flex items-center gap-1 hover:text-white"
+                className="flex items-center gap-1 hover:text-[var(--text)]"
               >
                 {copied ? <Check size={11} /> : <Copy size={11} />}
                 {copied ? "Copied" : "Copy"}
@@ -152,7 +182,7 @@ export function MessageBubble({
                 <button
                   type="button"
                   onClick={onRegenerate}
-                  className="flex items-center gap-1 hover:text-white"
+                  className="flex items-center gap-1 hover:text-[var(--text)]"
                 >
                   <RefreshCw size={11} /> Retry
                 </button>

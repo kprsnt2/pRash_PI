@@ -21,7 +21,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{var t=localStorage.getItem('prash-ai:theme');if(!t&&window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)t='light';if(t==='light')document.documentElement.classList.add('light')}catch(e){}",
+          }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

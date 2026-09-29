@@ -27,7 +27,7 @@ function PreBlock({ children }: { children?: ReactNode }) {
       <button
         type="button"
         onClick={copy}
-        className="absolute right-2 top-2 z-10 rounded-md border border-[#26304a] bg-[#111726] p-1.5 text-[#93a0bd] opacity-0 transition group-hover:opacity-100 hover:text-white no-print"
+        className="absolute right-2 top-2 z-10 rounded-md border border-[var(--border)] bg-[var(--bg-soft)] p-1.5 text-[var(--muted)] opacity-0 transition group-hover:opacity-100 hover:text-[var(--text)] no-print"
         aria-label="Copy code"
       >
         {copied ? <Check size={14} /> : <Copy size={14} />}
